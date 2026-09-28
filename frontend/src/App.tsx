@@ -10,12 +10,12 @@ import {
   RefreshCw,
   Search,
   X,
+  LogIn,
 } from "lucide-react";
-import Login from "./login";
+import Login from "./login.tsx";
 import "./App.css";
 
 const API = "http://localhost:4000/api/emails";
-const SLACK_API = "http://localhost:4000/api/slack";
 const PAGE_SIZE = 10;
 
 type EmailStatus =
@@ -61,10 +61,6 @@ function App() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
-
-  const [slackConnected, setSlackConnected] = useState(false);
-  const [slackLoading, setSlackLoading] = useState(false);
-  const [slackError, setSlackError] = useState("");
 
   const requestId = useRef(0);
 
@@ -114,21 +110,6 @@ function App() {
     }
   }
 
-  async function loadSlackStatus() {
-    try {
-      setSlackLoading(true);
-      setSlackError("");
-
-      const response = await axios.get(`${SLACK_API}/status`);
-      setSlackConnected(response.data.connected === true);
-    } catch {
-      setSlackConnected(false);
-      setSlackError("Could not check Slack connection.");
-    } finally {
-      setSlackLoading(false);
-    }
-  }
-
   useEffect(() => {
     if (!loggedIn) return;
 
@@ -143,24 +124,6 @@ function App() {
       requestId.current++;
     };
   }, [loggedIn, status, search, page]);
-
-  useEffect(() => {
-    if (!loggedIn) return;
-
-    loadSlackStatus();
-
-    const params = new URLSearchParams(window.location.search);
-
-    if (params.get("slack") === "connected") {
-      setMessage("Slack connected successfully!");
-      window.history.replaceState(
-        {},
-        "",
-        window.location.pathname
-      );
-      loadSlackStatus();
-    }
-  }, [loggedIn]);
 
   async function scheduleEmail(
     e: React.FormEvent<HTMLFormElement>
@@ -357,59 +320,16 @@ function App() {
             <p>Schedule, track, and manage your outreach.</p>
           </div>
 
-          <div className="topbar-actions">
-            <div className="slack-status">
-              <span
-                className={`slack-dot ${
-                  slackConnected
-                    ? "connected"
-                    : "disconnected"
-                }`}
-              />
-              {slackLoading
-                ? "Checking Slack..."
-                : slackConnected
-                ? "Slack connected"
-                : "Slack not connected"}
-            </div>
-
-            <button
-              className="slack-connect"
-              type="button"
-              onClick={() => {
-                window.location.href =
-                  `${SLACK_API}/install`;
-              }}
-              disabled={slackLoading || slackConnected}
-            >
-              {slackConnected
-                ? "Connected"
-                : "Connect Slack"}
-            </button>
-
-            <button
-              className="refresh"
-              type="button"
-              onClick={loadEmails}
-              disabled={loading}
-            >
-              <RefreshCw size={16} />
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
+          <button
+            className="refresh"
+            type="button"
+            onClick={loadEmails}
+            disabled={loading}
+          >
+            <RefreshCw size={16} />
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </header>
-
-        {slackError && (
-          <div className="error" role="alert">
-            {slackError}
-            <button
-              type="button"
-              onClick={loadSlackStatus}
-            >
-              Retry
-            </button>
-          </div>
-        )}
 
         <section className="stats">
           <div className="stat-card">
@@ -485,25 +405,20 @@ function App() {
               <label>Recipients</label>
               <textarea
                 value={recipients}
-                onChange={(e) =>
-                  setRecipients(e.target.value)
-                }
+                onChange={(e) => setRecipients(e.target.value)}
                 placeholder="name@example.com, another@example.com"
                 rows={3}
                 required
               />
 
               <small className="hint">
-                Separate multiple addresses with commas or new
-                lines.
+                Separate multiple addresses with commas or new lines.
               </small>
 
               <label>Subject</label>
               <input
                 value={subject}
-                onChange={(e) =>
-                  setSubject(e.target.value)
-                }
+                onChange={(e) => setSubject(e.target.value)}
                 placeholder="Enter email subject"
                 required
               />
@@ -521,9 +436,7 @@ function App() {
               <input
                 type="datetime-local"
                 value={scheduledAt}
-                onChange={(e) =>
-                  setScheduledAt(e.target.value)
-                }
+                onChange={(e) => setScheduledAt(e.target.value)}
                 min={localMinDate}
                 required
               />
@@ -534,9 +447,7 @@ function App() {
                 disabled={submitting}
               >
                 <Clock size={16} />
-                {submitting
-                  ? "Scheduling..."
-                  : "Schedule email"}
+                {submitting ? "Scheduling..." : "Schedule email"}
               </button>
             </form>
           </div>
@@ -552,9 +463,7 @@ function App() {
 
               <select
                 value={status}
-                onChange={(e) =>
-                  changeStatus(e.target.value)
-                }
+                onChange={(e) => changeStatus(e.target.value)}
               >
                 <option value="all">All statuses</option>
                 <option value="scheduled">Scheduled</option>
@@ -572,9 +481,7 @@ function App() {
                 type="search"
                 placeholder="Search recipient or subject..."
                 value={search}
-                onChange={(e) =>
-                  changeSearch(e.target.value)
-                }
+                onChange={(e) => changeSearch(e.target.value)}
               />
 
               {search && (
@@ -615,10 +522,7 @@ function App() {
               <>
                 <div className="email-list">
                   {emails.map((email) => (
-                    <div
-                      className="email-row"
-                      key={email.id}
-                    >
+                    <div className="email-row" key={email.id}>
                       <div className="email-main">
                         <strong>{email.subject}</strong>
                         <span>{email.recipient}</span>
@@ -657,9 +561,7 @@ function App() {
                           <button
                             className="cancel-btn"
                             type="button"
-                            onClick={() =>
-                              cancelEmail(email.id)
-                            }
+                            onClick={() => cancelEmail(email.id)}
                           >
                             Cancel
                           </button>
@@ -671,29 +573,29 @@ function App() {
 
                 <div className="pagination">
                   <span>
-                    Page {page} of {totalPages || 1} ·{" "}
-                    {total} emails
+                    Page {page} of {totalPages || 1} · {total} emails
                   </span>
 
                   <div className="page-buttons">
                     <button
                       type="button"
                       disabled={page <= 1 || loading}
-                      onClick={() =>
-                        setPage((p) => p - 1)
-                      }
+                      onClick={() => setPage((p) => p - 1)}
                     >
                       Previous
                     </button>
-
+<button
+  onClick={() => {
+    window.location.href =
+      "http://localhost:4000/api/slack/install";
+  }}
+>
+  Connect Slack
+</button>
                     <button
                       type="button"
-                      disabled={
-                        page >= totalPages || loading
-                      }
-                      onClick={() =>
-                        setPage((p) => p + 1)
-                      }
+                      disabled={page >= totalPages || loading}
+                      onClick={() => setPage((p) => p + 1)}
                     >
                       Next
                     </button>
